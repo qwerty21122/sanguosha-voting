@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>三国杀武将强度投票箱</title>
+<style>
+  :root{
+    --bg:#eef2f7; --bg2:#e3e9f2; --card:#ffffff; --ink:#2c3440; --sub:#6b7688;
+    --line:#dfe5ee; --accent:#5b7cbe; --accent2:#8aa4d6; --shadow:0 8px 24px rgba(60,80,120,.10);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:"Microsoft YaHei","PingFang SC","Segoe UI",sans-serif;
+    color:var(--ink);
+    background:linear-gradient(135deg,var(--bg),var(--bg2));
+    min-height:100vh;
+  }
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 28px; background:rgba(255,255,255,.75);
+    backdrop-filter:blur(6px); border-bottom:1px solid var(--line);
+    position:sticky; top:0; z-index:10;
+  }
+  header .brand{font-size:20px; font-weight:800; letter-spacing:1px;}
+  header .brand small{font-weight:500; color:var(--sub); font-size:13px; margin-left:8px;}
+  header nav button{
+    border:none; background:var(--accent); color:#fff; cursor:pointer;
+    padding:9px 18px; border-radius:10px; font-size:14px; font-weight:600;
+    transition:.15s; box-shadow:0 3px 10px rgba(91,124,190,.3);
+  }
+  header nav button:hover{background:#496aa8;}
+  .wrap{max-width:1180px; margin:0 auto; padding:32px 20px 60px;}
+  .vote-head{text-align:center; margin-bottom:20px;}
+  .vote-head h1{font-size:26px; margin:0 0 6px;}
+  .vote-head p{color:var(--sub); margin:0; font-size:14px;}
+  .criteria{
+    max-width:760px; margin:14px auto 0; text-align:center; font-size:13.5px; color:#5a6b8c;
+    background:#eef3fb; border:1px solid #dde6f5; border-radius:12px; padding:10px 18px; line-height:1.7;
+  }
+  .criteria b{color:var(--accent);}
+  .counter{text-align:center; color:var(--sub); font-size:13px; margin-top:12px;}
+  .arena{
+    display:flex; align-items:stretch; justify-content:center; gap:26px;
+    margin-top:22px; flex-wrap:wrap;
+  }
+  .pick{
+    flex:1 1 440px; max-width:520px; min-height:440px; background:var(--card);
+    border:1px solid var(--line); border-radius:20px; box-shadow:var(--shadow);
+    display:flex; flex-direction:column; align-items:center;
+    padding:34px 30px 28px; cursor:pointer; transition:.18s; position:relative; overflow:hidden;
+  }
+  .pick:hover{transform:translateY(-4px); border-color:var(--accent2); box-shadow:0 14px 32px rgba(60,80,120,.18);}
+  .pick .faction{
+    font-size:19px; font-weight:700; color:#fff; padding:6px 22px; border-radius:22px;
+    margin-bottom:16px; letter-spacing:2px;
+  }
+  .pick .name{font-size:38px; font-weight:800; text-align:center; line-height:1.25; margin-bottom:16px;}
+  .pick .desc{
+    width:100%; flex:1 1 auto; color:#4a5568; font-size:14.5px; line-height:1.75;
+    text-align:left; white-space:pre-line; overflow-y:auto; padding:14px 16px;
+    background:#f6f8fc; border:1px solid #edf1f8; border-radius:12px; max-height:230px;
+  }
+  .pick .desc::-webkit-scrollbar{width:6px;}
+  .pick .desc::-webkit-scrollbar-thumb{background:#cdd7e6; border-radius:6px;}
+  .pick .hint{margin-top:16px; color:var(--sub); font-size:13px;}
+  .vs{
+    align-self:center; font-size:28px; font-weight:900; color:var(--accent);
+    background:#fff; border-radius:50%; width:58px; height:58px;
+    display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow);
+    border:2px solid var(--accent2); flex:0 0 auto;
+  }
+  .skipbar{text-align:center; margin-top:24px;}
+  .skipbar button{
+    border:1px solid var(--line); background:#fff; color:var(--sub);
+    padding:9px 22px; border-radius:10px; cursor:pointer; font-size:14px; transition:.15s;
+  }
+  .skipbar button:hover{color:var(--accent); border-color:var(--accent2);}
+  .f-wei{background:#4a6fa5;} .f-shu{background:#3f9d6b;}
+  .f-wu{background:#c8514e;} .f-qun{background:#8a7a4e;}
+  .f-dual{background:#7a5ea8;} .f-amb{background:#555c66;} .f-yin{background:#4c8aa0;}
+  .stats-panel{display:none;}
+  .stats-panel.active{display:block;}
+  .vote-panel.hidden{display:none;}
+  .stats-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; flex-wrap:wrap; gap:12px;}
+  .stats-head h2{margin:0; font-size:22px;}
+  .stats-tools{display:flex; align-items:center; gap:14px; font-size:13px; color:var(--sub);}
+  .stats-tools label{display:flex; align-items:center; gap:6px;}
+  .stats-tools input{width:56px; padding:4px 6px; border:1px solid var(--line); border-radius:6px;}
+  .stats-tools button{
+    border:none; background:var(--accent); color:#fff; padding:7px 14px;
+    border-radius:8px; cursor:pointer; font-size:13px;
+  }
+  table{width:100%; border-collapse:collapse; background:#fff; border-radius:14px; overflow:hidden; box-shadow:var(--shadow);}
+  thead th{background:#eaf0fb; color:#3a4a66; font-size:15px; padding:14px 10px; text-align:center;}
+  tbody td{padding:11px 10px; text-align:center; border-top:1px solid #f0f3f8; font-size:14px;}
+  tbody tr:nth-child(even){background:#fafbfe;}
+  .tier-cell{color:#fff; font-weight:700; min-width:86px;}
+  .name-cell{font-weight:700;}
+  .empty{text-align:center; color:var(--sub); padding:40px; font-size:15px;}
+  .t0{background:#c0504d;} .t1{background:#d47a5a;} .t2{background:#dca24e;}
+  .t3{background:#c9b85a;} .t4{background:#8faf6a;} .t5{background:#5fa0a0;}
+  .t6{background:#5b7cbe;} .t7{background:#7a6fa8;} .t8{background:#8a8f99;}
+  .name-link{color:var(--accent); cursor:pointer; text-decoration:none; border-bottom:1px dashed var(--accent2);}
+  .name-link:hover{color:#3a5a99; border-bottom-style:solid;}
+  .modal-mask{
+    display:none; position:fixed; inset:0; background:rgba(30,40,60,.45);
+    z-index:100; align-items:center; justify-content:center; padding:20px;
+  }
+  .modal-mask.show{display:flex;}
+  .modal-box{
+    background:#fff; border-radius:16px; max-width:560px; width:100%; max-height:80vh;
+    overflow:hidden; box-shadow:0 20px 60px rgba(30,40,60,.35); display:flex; flex-direction:column;
+    animation:pop .16s ease;
+  }
+  @keyframes pop{from{transform:scale(.94); opacity:0;} to{transform:scale(1); opacity:1;}}
+  .modal-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 22px; border-bottom:1px solid var(--line);
+  }
+  .modal-head .m-name{font-size:24px; font-weight:800;}
+  .modal-head .m-fac{font-size:14px; color:#fff; padding:4px 14px; border-radius:16px; margin-left:12px; font-weight:700; letter-spacing:1px;}
+  .modal-head .m-close{
+    border:none; background:#eef2f7; color:var(--sub); width:34px; height:34px; border-radius:50%;
+    font-size:20px; cursor:pointer; line-height:1;
+  }
+  .modal-head .m-close:hover{background:#e0e6ef; color:var(--ink);}
+  .modal-body{
+    padding:20px 22px; overflow-y:auto; white-space:pre-line;
+    font-size:15px; line-height:1.85; color:#3a4658;
+  }
+  footer{text-align:center; color:var(--sub); font-size:12px; padding:20px;}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">三国杀武将强度投票箱 <small>国战</small></div>
+  <nav><button id="navBtn" onclick="toggleView()">总数据</button></nav>
+</header>
+<div class="wrap">
+  <section class="vote-panel" id="votePanel">
+    <div class="vote-head">
+      <h1>三国杀武将强度投票箱</h1>
+      <p>随机对决 · 点击你认为更强的一方</p>
+      <div class="criteria">请<b>仅评价该武将的单将强度</b>，综合考量其<b>与其他武将的配合能力、残局能力、输出能力、控场能力</b>等维度进行选择。</div>
+      <div class="counter">已投票 <b id="voteCount">0</b> 次 · 共 <b id="genTotal">0</b> 名武将</div>
+    </div>
+    <div class="arena">
+      <div class="pick" id="pickA" onclick="vote(0)">
+        <span class="faction" id="facA"></span>
+        <span class="name" id="nameA"></span>
+        <div class="desc" id="descA"></div>
+        <span class="hint">点击选择</span>
+      </div>
+      <div class="vs">VS</div>
+      <div class="pick" id="pickB" onclick="vote(1)">
+        <span class="faction" id="facB"></span>
+        <span class="name" id="nameB"></span>
+        <div class="desc" id="descB"></div>
+        <span class="hint">点击选择</span>
+      </div>
+    </div>
+    <div class="skipbar"><button onclick="nextPair()">跳过这一对 →</button></div>
+  </section>
+  <section class="stats-panel" id="statsPanel">
+    <div class="stats-head">
+      <h2>国战总数据</h2>
+      <div class="stats-tools">
+        <label>分层数 <input type="number" id="tierCount" value="9" min="3" max="9" onchange="renderStats()"></label>
+        <button onclick="exportCSV()">导出 CSV</button>
+        <button onclick="resetData()" style="background:#c8514e;">清空数据</button>
+      </div>
+    </div>
+    <div id="statsBody"></div>
+  </section>
+</div>
+<div class="modal-mask" id="skillMask" onclick="if(event.target===this)closeSkill()">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div><span class="m-name" id="mName"></span><span class="m-fac" id="mFac"></span></div>
+      <button class="m-close" onclick="closeSkill()">×</button>
+    </div>
+    <div class="modal-body" id="mBody"></div>
+  </div>
+</div>
+<footer>数据仅保存在本地浏览器（localStorage）· 胜率 = 得票次数 / 出场次数 · 势力为"隐"的武将不参与</footer>
+<script>
+const GENERALS = []; // 将从服务器加载
+
+// 从服务器加载武将数据
+async function loadGenerals() {
+  try {
+    const response = await fetch('/api/generals');
+    if (response.ok) {
+      const data = await response.json();
+      return data;
+    }
+  } catch (e) {
+    console.error('加载武将数据失败:', e);
+  }
+  return [];
+}
+
+const FACTION_CLASS = {
+  "魏": "f-wei", "蜀": "f-shu", "吴": "f-wu", "群": "f-qun",
+  "双势力": "f-dual", "隐": "f-yin"
+};
+
+let cur = [0, 1];
+let cachedGenerals = [];
+
+// 初始化
+async function init() {
+  cachedGenerals = await loadGenerals();
+  if (cachedGenerals.length > 0) {
+    document.getElementById("genTotal").textContent = cachedGenerals.length;
+    nextPair();
+  } else {
+    alert('无法加载武将数据，请检查服务器连接');
+  }
+}
+
+function pickTwo() {
+  let a = Math.floor(Math.random() * cachedGenerals.length);
+  let b = Math.floor(Math.random() * cachedGenerals.length);
+  while (b === a) b = Math.floor(Math.random() * cachedGenerals.length);
+  return [a, b];
+}
+
+function nextPair() {
+  cur = pickTwo();
+  const A = cachedGenerals[cur[0]], B = cachedGenerals[cur[1]];
+  document.getElementById("nameA").textContent = A[0];
+  document.getElementById("nameB").textContent = B[0];
+  document.getElementById("descA").textContent = A[2] || "";
+  document.getElementById("descB").textContent = B[2] || "";
+  const fa = document.getElementById("facA"), fb = document.getElementById("facB");
+  fa.textContent = A[1]; fb.textContent = B[1];
+  fa.className = "faction " + (FACTION_CLASS[A[1]] || "f-amb");
+  fb.className = "faction " + (FACTION_CLASS[B[1]] || "f-amb");
+  document.getElementById("descA").scrollTop = 0;
+  document.getElementById("descB").scrollTop = 0;
+}
+
+async function vote(side) {
+  const winIdx = cur[side], loseIdx = cur[side === 0 ? 1 : 0];
+  const win = cachedGenerals[winIdx], lose = cachedGenerals[loseIdx];
+  
+  try {
+    const response = await fetch('/api/vote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ winner: win[0], loser: lose[0] })
+    });
+    
+    if (response.ok) {
+      bumpCount();
+      nextPair();
+    } else {
+      alert('投票提交失败，请重试');
+    }
+  } catch (e) {
+    console.error('投票失败:', e);
+    alert('网络错误，请检查连接');
+  }
+}
+
+async function bumpCount() {
+  try {
+    const response = await fetch('/api/stats');
+    if (response.ok) {
+      const data = await response.json();
+      document.getElementById("voteCount").textContent = data.total_votes || 0;
+    }
+  } catch (e) {
+    console.error('获取统计失败:', e);
+  }
+}
+
+const TIER_NAMES = ["超大杯上","超大杯中","超大杯下","大杯上","大杯中","大杯下","中杯上","中杯中","中杯下"];
+
+function toggleView() {
+  const v = document.getElementById("votePanel");
+  const s = document.getElementById("statsPanel");
+  const btn = document.getElementById("navBtn");
+  if (s.classList.contains("active")) {
+    s.classList.remove("active"); 
+    v.classList.remove("hidden"); 
+    btn.textContent = "总数据";
+  } else {
+    s.classList.add("active"); 
+    v.classList.add("hidden"); 
+    btn.textContent = "去投票"; 
+    renderStats();
+  }
+}
+
+async function rankedList() {
+  try {
+    const response = await fetch('/api/results');
+    if (response.ok) {
+      return await response.json();
+    }
+  } catch (e) {
+    console.error('获取结果失败:', e);
+  }
+  return [];
+}
+
+function tierName(i, tiers) {
+  const idx = Math.min(TIER_NAMES.length - 1, Math.floor(i * TIER_NAMES.length / tiers));
+  return TIER_NAMES[idx];
+}
+
+async function renderStats() {
+  const rows = await rankedList();
+  const body = document.getElementById("statsBody");
+  if (rows.length === 0) { 
+    body.innerHTML = '<div class="empty">还没有投票数据，先去投几票吧～</div>'; 
+    return; 
+  }
+  let tiers = parseInt(document.getElementById("tierCount").value) || 9;
+  tiers = Math.max(3, Math.min(9, tiers));
+  const n = rows.length;
+  let html = '<table><thead><tr><th>杯级</th><th>排名</th><th>武将</th><th>势力</th><th>出场</th><th>胜率</th><th>得分</th></tr></thead><tbody>';
+  rows.forEach((r, i) => {
+    const tIdx = Math.min(tiers - 1, Math.floor(i * tiers / n));
+    const tName = tierName(tIdx, tiers);
+    html += '<tr><td class="tier-cell t' + tIdx + '">' + tName + '</td><td>' + (i + 1) + '</td><td class="name-cell"><a class="name-link" onclick="showSkill(\'' + encodeURIComponent(r.name) + '\')">' + r.name + '</a></td><td>' + r.faction + '</td><td>' + r.games + '</td><td>' + (r.rate * 100).toFixed(1) + '%</td><td>' + r.score.toFixed(0) + '</td></tr>';
+  });
+  html += '</tbody></table>';
+  body.innerHTML = html;
+}
+
+async function exportCSV() {
+  try {
+    window.location.href = '/api/export';
+  } catch (e) {
+    console.error('导出失败:', e);
+    alert('导出失败');
+  }
+}
+
+async function resetData() {
+  if (!confirm("确定清空所有投票数据吗？此操作不可恢复。")) return;
+  try {
+    const response = await fetch('/api/reset', { method: 'POST' });
+    if (response.ok) {
+      alert('数据已清空');
+      renderStats();
+      bumpCount();
+    } else {
+      alert('清空失败');
+    }
+  } catch (e) {
+    console.error('清空失败:', e);
+    alert('网络错误');
+  }
+}
+
+async function showSkill(encName) {
+  const name = decodeURIComponent(encName);
+  const g = cachedGenerals.find(x => x[0] === name);
+  document.getElementById("mName").textContent = name;
+  const facEl = document.getElementById("mFac");
+  const fac = g ? g[1] : "";
+  facEl.textContent = fac;
+  facEl.className = "m-fac " + (FACTION_CLASS[fac] || "f-amb");
+  document.getElementById("mBody").textContent = (g && g[2]) ? g[2] : "（暂无技能描述）";
+  document.getElementById("skillMask").classList.add("show");
+}
+
+function closeSkill() { 
+  document.getElementById("skillMask").classList.remove("show"); 
+}
+
+document.addEventListener("keydown", e => { 
+  if (e.key === "Escape") closeSkill(); 
+});
+
+// 启动时初始化
+init();
+</script>
+</body>
+</html>

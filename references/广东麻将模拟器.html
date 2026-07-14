@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>广东麻将模拟器</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:"Microsoft YaHei","PingFang SC",sans-serif; background:#0b5d2e; color:#fff; }
+  .screen { display:none; } .screen.active { display:block; } .screen:not(.active){ display:none !important; }
+  #cover.active { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh;
+           background:radial-gradient(circle at 50% 30%, #157a3d, #07401f); }
+  #cover h1 { font-size:54px; letter-spacing:8px; text-shadow:0 4px 12px rgba(0,0,0,.5); margin-bottom:50px; }
+  .btn { cursor:pointer; border:none; border-radius:8px; padding:12px 26px; font-size:18px;
+         background:#f5c542; color:#3a2a00; font-weight:bold; box-shadow:0 4px 0 #b9901f; transition:.1s; }
+  .btn:hover { filter:brightness(1.05); } .btn:active { transform:translateY(3px); box-shadow:0 1px 0 #b9901f; }
+  .btn.start { font-size:24px; padding:16px 60px; } .btn.ghost { background:#444; color:#fff; box-shadow:0 4px 0 #222; }
+  .btn:disabled { opacity:.4; cursor:not-allowed; box-shadow:none; }
+  #game { padding:10px 14px 24px; max-width:1100px; margin:0 auto; }
+  .topbar { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
+  .topbar .info { margin-left:auto; font-size:14px; opacity:.95; text-align:right; line-height:1.5; }
+  .ghost-tile { background:#7a1fa2; color:#fff; padding:3px 10px; border-radius:6px; font-weight:bold; }
+  .seat { background:rgba(0,0,0,.18); border-radius:10px; padding:8px 10px; margin:8px 0; }
+  .seat h3 { margin:0 0 6px; font-size:15px; display:flex; align-items:center; gap:8px; }
+  .seat .melds { font-size:13px; color:#ffe9a8; }
+  .hand { display:flex; flex-wrap:wrap; gap:6px; align-items:flex-end; min-height:64px; }
+  .tile { position:relative; width:42px; height:58px; border-radius:6px; background:#fbf7ee; color:#1b3a1b;
+          display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:bold;
+          border:1px solid #cdbf9a; box-shadow:0 2px 3px rgba(0,0,0,.3); user-select:none; }
+  .tile .glyph { font-size:40px; line-height:1; font-weight:normal;
+                 font-family:'Segoe UI Symbol','Noto Sans Symbols 2','Noto Sans Symbols',sans-serif;
+                 font-variant-emoji:text; text-rendering:optimizeLegibility; }
+  .discardpile .tile .glyph { font-size:26px; }
+  .winhint .tile .glyph { font-size:24px; }
+  .tile.s { color:#1565c0; } .tile.b { color:#2e7d32; } .tile.w { color:#b71c1c; } .tile.z { color:#4a148c; }
+  .tile.back { background:#1f6b3a; color:#1f6b3a; border-color:#0c3d20; }
+  .tile.isghost { outline:3px solid #ffd54f; }
+  .tile.clickable { cursor:pointer; } .tile.clickable:hover { transform:translateY(-8px); transition:.08s; }
+  .tile.selected { transform:translateY(-10px); outline:3px solid #ff7043; }
+  .tile.claim-hl { outline:3px solid #29b6f6; box-shadow:0 0 12px 2px #29b6f6; animation:claimpulse 1s ease-in-out infinite; }
+  @keyframes claimpulse { 0%,100%{ box-shadow:0 0 8px 1px #29b6f6; } 50%{ box-shadow:0 0 16px 4px #29b6f6; } }
+  .tile .prob { position:absolute; top:-20px; left:50%; transform:translateX(-50%);
+                font-size:12px; background:#000; color:#9cff9c; padding:1px 4px; border-radius:4px; white-space:nowrap; }
+  .tile .prob.best { color:#000; background:#9cff9c; font-weight:bold; }
+  .tile.drawn { margin-left:14px; }
+  .tile.ghost-gap { margin-left:22px; }
+  .discardpile { display:flex; flex-wrap:wrap; gap:4px; min-height:40px; background:rgba(0,0,0,.12);
+                 border-radius:8px; padding:6px; margin:6px 0; }
+  .discardpile .tile { width:30px; height:42px; font-size:13px; }
+  .controls { display:flex; gap:10px; margin-top:12px; flex-wrap:wrap; align-items:center; }
+  .winhint { margin-left:auto; font-size:13px; color:#ffe9a8; max-width:62%; display:flex; flex-direction:column; align-items:flex-end; gap:4px; }
+  .winrow { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:5px; }
+  .winhint .wlabel { white-space:nowrap; opacity:.95; }
+  .winhint .tile { width:28px; height:38px; font-size:12px; }
+  .winhint .tile { overflow:visible; }
+  .rem-badge { position:absolute; bottom:-7px; right:-5px; background:#c62828; color:#fff;
+               font-size:10px; line-height:1; padding:1px 4px; border-radius:8px; font-weight:bold; box-shadow:0 1px 2px rgba(0,0,0,.4); }
+  .rem-badge.zero { background:#555; }
+  .winrow.cur .wlabel { color:#fff; font-weight:bold; }
+  .log { margin-top:12px; background:rgba(0,0,0,.25); border-radius:8px; padding:8px 12px;
+         font-size:13px; max-height:150px; overflow:auto; line-height:1.6; }
+  .banner { text-align:center; font-size:18px; color:#ffd54f; margin:8px 0; min-height:24px; font-weight:bold; }
+  .hint-bar { font-size:13px; opacity:.85; margin-top:6px; }
+  .changelog-btn { position:fixed; top:18px; right:20px; z-index:50; }
+  .clpanel { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; z-index:1000; }
+  .clpanel.show { display:flex; align-items:center; justify-content:center; }
+  .clpanel .card { background:#0f4d2a; border:1px solid #2e7d4f; border-radius:12px; width:min(560px,92vw);
+                   max-height:80vh; overflow:auto; padding:18px 22px; box-shadow:0 10px 40px rgba(0,0,0,.5); }
+  .clpanel h2 { margin:0 0 12px; font-size:22px; color:#ffd54f; }
+  .cl-item { border-top:1px solid rgba(255,255,255,.12); padding:10px 0; }
+  .cl-item:first-of-type { border-top:none; }
+  .cl-ver { font-size:16px; font-weight:bold; color:#9cff9c; }
+  .cl-date { font-size:12px; opacity:.7; margin-left:8px; }
+  .cl-desc { margin:6px 0 0; font-size:14px; line-height:1.6; }
+  .cl-close { margin-top:14px; text-align:right; }
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none;
+             align-items:center; justify-content:center; z-index:999; }
+  .overlay.show { display:flex; animation:fadein .2s ease; }
+  @keyframes fadein { from{opacity:0;} to{opacity:1;} }
+  .overlay .box { text-align:center; }
+  .overlay .big { font-size:64px; font-weight:900; color:#ff5252; letter-spacing:4px;
+                  text-shadow:0 4px 16px rgba(0,0,0,.7); animation:pop .35s cubic-bezier(.2,1.4,.4,1); }
+  @keyframes pop { from{transform:scale(.4);} to{transform:scale(1);} }
+  .overlay .sub { margin-top:18px; font-size:16px; color:#ffe9a8; }
+  .overlay .ok { margin-top:24px; }
+</style>
+</head>
+<body>
+<button class="btn ghost changelog-btn" id="changelogBtn">版更内容</button>
+<div id="cover" class="screen active">
+  <h1>广东麻将模拟器</h1>
+  <button class="btn start" id="startBtn">开始</button>
+</div>
+<div id="game" class="screen">
+  <div class="topbar">
+    <button class="btn ghost" id="backBtn">&larr; 返回</button>
+    <div class="info">本局鬼牌：<span class="ghost-tile" id="ghostLabel">?</span><br>牌墙剩余：<span id="wallCount">0</span> 张</div>
+  </div>
+  <div class="banner" id="banner"></div>
+  <div class="seat" id="seat-ai3"><h3>AI 对家 <span class="melds"></span></h3><div class="hand"></div></div>
+  <div class="seat" id="seat-ai2"><h3>AI 上家 <span class="melds"></span></h3><div class="hand"></div></div>
+  <div class="seat" id="seat-ai1"><h3>AI 下家 <span class="melds"></span></h3><div class="hand"></div></div>
+  <div style="font-size:13px;opacity:.8;margin-top:10px;">牌河（最近的弃牌）</div>
+  <div class="discardpile" id="discardpile"></div>
+  <div class="seat" id="seat-me" style="background:rgba(255,255,255,.07);">
+    <h3>你（庄家，先出牌） <span class="melds"></span></h3><div class="hand"></div>
+  </div>
+  <div class="controls">
+    <button class="btn" id="pengBtn" disabled>碰</button>
+    <button class="btn" id="gangBtn" disabled>杠</button>
+    <button class="btn" id="huBtn" disabled>胡</button>
+    <button class="btn ghost" id="cancelBtn" disabled>取消</button>
+    <div class="winhint" id="winhint"></div>
+  </div>
+  <div class="hint-bar">操作：轮到你时，点一下某张牌选中（牌上方显示该打法的概率），再点一次即打出；也可双击区域出牌。能碰/杠/胡时对应按钮点亮。</div>
+  <div class="log" id="log"></div>
+</div>
+<div class="clpanel" id="clpanel">
+  <div class="card">
+    <h2>版更内容</h2>
+    <div id="clList"></div>
+    <div class="cl-close"><button class="btn" id="clCloseBtn">关闭</button></div>
+  </div>
+</div>
+<div class="overlay" id="overlay">
+  <div class="box">
+    <div class="big" id="overlayBig">你被AI打爆了！</div>
+    <div class="sub" id="overlaySub"></div>
+    <div class="ok"><button class="btn" id="overlayOk">知道了</button></div>
+  </div>
+</div>
+<script>
+/* ===================== 版更内容 ===================== */
+var CHANGELOG=[
+  { ver:'2.0', date:'2026-06-23', desc:'新增首页右上角「版更内容」面板，按版本分条记录每次更新。' },
+  { ver:'1.9', date:'2026-06-23', desc:'所有牌面由纯文字改为麻将图示（Unicode 麻将字符），含背面牌；保留花色配色与各类角标。' },
+  { ver:'1.8', date:'2026-06-23', desc:'出现可碰/可杠时，牌河中被打出的目标牌与你手中对应的同名牌同步高亮（蓝色脉冲）。' },
+  { ver:'1.7', date:'2026-06-23', desc:'AI 自摸胡牌时弹出全屏大字提示「你被AI打爆了！」，每个 AI 首次胡牌仅提示一次。' },
+  { ver:'1.6', date:'2026-06-23', desc:'修复出牌概率评分：所有弃法均计算进张数，同向听内按进张多少拉开分差，能正确突出最优弃牌。' },
+  { ver:'1.5', date:'2026-06-23', desc:'听牌提示中，每张可胡牌右下角标注剩余可胡张数（按玩家可见信息计算）。' },
+  { ver:'1.4', date:'2026-06-23', desc:'右侧列出全部可听牌的打法，每种打法单独一行并显示其对应可胡牌。' },
+  { ver:'1.3', date:'2026-06-23', desc:'胡牌提示改为直接显示牌的图样而非文字；进入听牌状态时持续显示。' },
+  { ver:'1.2', date:'2026-06-23', desc:'手牌中鬼牌固定排在最左侧，并与普通牌之间留出间隔。' },
+  { ver:'1.1', date:'2026-06-23', desc:'修复点击「开始」后界面跳转：正确切换到对局界面，而非在封面下方展开。' },
+  { ver:'1.0', date:'2026-06-22', desc:'初始版本：封面+对局两层界面；136 张牌、标准胡牌、随机鬼牌（可胡不可碰杠）；只自摸不点炮、只碰不吃；出牌概率与听牌提示；碰/杠/胡/取消控件；三个 AI 按最优概率打牌（可碰杠、自摸胡摊牌后继续直至你胡或流局）。' }
+];
+function renderChangelog(){
+  var box=document.getElementById('clList'); box.innerHTML='';
+  CHANGELOG.forEach(function(c){
+    var item=document.createElement('div'); item.className='cl-item';
+    var head=document.createElement('div');
+    head.innerHTML='<span class="cl-ver">v'+c.ver+'</span><span class="cl-date">'+c.date+'</span>';
+    var desc=document.createElement('p'); desc.className='cl-desc'; desc.textContent=c.desc;
+    item.appendChild(head); item.appendChild(desc); box.appendChild(item);
+  });
+}
+function showChangelog(){ renderChangelog(); document.getElementById('clpanel').classList.add('show'); }
+function hideChangelog(){ document.getElementById('clpanel').classList.remove('show'); }
+
+var SUITS=['w','b','s','z'];
+var SUIT_NAME={w:'万',b:'筒',s:'条',z:''};
+var Z_NAME=['','东','南','西','北','中','发','白'];
+function tid(s,r){return SUITS.indexOf(s)*10+r;}
+function tSuit(id){return SUITS[Math.floor(id/10)];}
+function tRank(id){return id%10;}
+function tileName(id){var s=tSuit(id),r=tRank(id);return s==='z'?Z_NAME[r]:(r+SUIT_NAME[s]);}
+function tileGlyph(id){ var s=tSuit(id), r=tRank(id); var base;
+  if(s==='w') base=0x1F007+(r-1);
+  else if(s==='s') base=0x1F010+(r-1);
+  else if(s==='b') base=0x1F019+(r-1);
+  else base=0x1F000+(r-1); // 字: 东南西北中发白
+  return String.fromCodePoint(base) + '\uFE0E'; }
+function allTileIds(){var ids=[];['w','b','s'].forEach(function(s){for(var r=1;r<=9;r++)ids.push(tid(s,r));});for(var r=1;r<=7;r++)ids.push(tid('z',r));return ids;}
+function toBuckets(map){
+  var b={w:new Array(10).fill(0),b:new Array(10).fill(0),s:new Array(10).fill(0),z:new Array(8).fill(0)};
+  for(var k in map){var id=+k; b[tSuit(id)][tRank(id)] += map[k];}
+  return b;
+}
+function mapFromHand(handIds, ghostId){
+  var map={}, g=0;
+  for(var i=0;i<handIds.length;i++){ var id=handIds[i]; if(id===ghostId){g++;continue;} map[id]=(map[id]||0)+1; }
+  return {map:map,g:g};
+}
+// 单花色: 给定可用鬼牌 G, 返回 Map: pairFlag(0/1) -> {melds: 最大面子数 at that pair state -> partials max}
+// 简化为收集所有可达 [melds, partials, pair, ghostUsed]
+function suitFrontierG(a, isH, G){
+  var res=[]; var seen=new Set();
+  var n=a.length;
+  function add(m,t,p,gu){ var k=m+'|'+t+'|'+p+'|'+gu; if(!seen.has(k)){seen.add(k); res.push([m,t,p,gu]);} }
+  function rec(i,m,t,p,gu){
+    while(i<n && a[i]===0) i++;
+    if(i>=n){ add(m,t,p,gu); return; }
+    // 纯刻子
+    if(a[i]>=3){ a[i]-=3; rec(i,m+1,t,p,gu); a[i]+=3; }
+    // 纯顺子
+    if(!isH && i+2<n && a[i]&&a[i+1]&&a[i+2]){ a[i]--;a[i+1]--;a[i+2]--; rec(i,m+1,t,p,gu); a[i]++;a[i+1]++;a[i+2]++; }
+    // 纯对子(将/搭)
+    if(a[i]>=2){ a[i]-=2; if(p===0) rec(i,m,t,1,gu); rec(i,m,t+1,p,gu); a[i]+=2; }
+    // 纯搭子
+    if(!isH && i+1<n && a[i]&&a[i+1]){ a[i]--;a[i+1]--; rec(i,m,t+1,p,gu); a[i]++;a[i+1]++; }
+    if(!isH && i+2<n && a[i]&&a[i+2]){ a[i]--;a[i+2]--; rec(i,m,t+1,p,gu); a[i]++;a[i+2]++; }
+    // 鬼补刻子: 2现+1鬼, 1现+2鬼
+    if(gu<G && a[i]>=2){ a[i]-=2; rec(i,m+1,t,p,gu+1); a[i]+=2; }
+    if(gu+1<G && a[i]>=1){ a[i]-=1; rec(i,m+1,t,p,gu+2); a[i]+=1; }
+    // 鬼补顺子(缺1): pos+next, pos+next2
+    if(!isH && gu<G && i+1<n && a[i]&&a[i+1]){ a[i]--;a[i+1]--; rec(i,m+1,t,p,gu+1); a[i]++;a[i+1]++; }
+    if(!isH && gu<G && i+2<n && a[i]&&a[i+2]){ a[i]--;a[i+2]--; rec(i,m+1,t,p,gu+1); a[i]++;a[i+2]++; }
+    // 鬼补将/对子: 1现+1鬼
+    if(gu<G && a[i]>=1){ a[i]-=1; if(p===0) rec(i,m,t,1,gu+1); rec(i,m,t+1,p,gu+1); a[i]+=1; }
+    // 孤张跳过
+    a[i]--; rec(i,m,t,p,gu); a[i]++;
+  }
+  rec(0,0,0,0,0);
+  return res;
+}
+function shantenStd(handIds, ghostId, meldCount){
+  var mg=mapFromHand(handIds, ghostId);
+  var bk=toBuckets(mg.map); var G=mg.g;
+  var N=4-meldCount;
+  var fr={
+    w:suitFrontierG(bk.w,false,G), b:suitFrontierG(bk.b,false,G),
+    s:suitFrontierG(bk.s,false,G), z:suitFrontierG(bk.z,true,G)
+  };
+  var best=99;
+  var W=fr.w,B=fr.b,S=fr.s,Z=fr.z;
+  for(var iw=0;iw<W.length;iw++)for(var ib=0;ib<B.length;ib++)
+  for(var is=0;is<S.length;is++)for(var iz=0;iz<Z.length;iz++){
+    var gu=W[iw][3]+B[ib][3]+S[is][3]+Z[iz][3];
+    if(gu>G) continue;
+    var m=W[iw][0]+B[ib][0]+S[is][0]+Z[iz][0];
+    var t=W[iw][1]+B[ib][1]+S[is][1]+Z[iz][1];
+    var pr=W[iw][2]+B[ib][2]+S[is][2]+Z[iz][2];
+    var gLeft=G-gu;
+    var hasPair=pr>0?1:0;
+    var useMelds=Math.min(m,N);
+    var remSlots=N-useMelds;
+    var useT=Math.min(t,remSlots);
+    var sh=(N-useMelds)*2 - useT - hasPair;
+    // 剩余鬼牌: 每个可把一个“缺口”补上(-1), 但不能凭空造将(已在frontier处理将)
+    // 这里剩余鬼仅用于补尚未满足的面子缺口/将
+    var needPairFix = hasPair?0:1;
+    // 用剩余鬼补将(需要2鬼造对, 或与孤张, 已尽量在frontier用过); 这里保守: 2鬼=1将
+    if(needPairFix && gLeft>=2){ hasPair=1; gLeft-=2; sh-=1; }
+    // 用剩余鬼补面子缺口: 每2鬼成1面子
+    while(useMelds<N && gLeft>=2){ useMelds++; gLeft-=2; sh-=2-0; }
+    // 重新算sh更稳: 直接重算
+    var rem2=N-useMelds; var useT2=Math.min(t,rem2);
+    sh=(N-useMelds)*2 - useT2 - (hasPair?1:0);
+    if(sh<-1) sh=-1;
+    if(sh<best) best=sh;
+  }
+  return best;
+}
+function isWin(handIds, ghostId, meldCount){ return shantenStd(handIds, ghostId, meldCount)===-1; }
+function shanten13(handIds, ghostId, meldCount){ return shantenStd(handIds, ghostId, meldCount); }
+function winningTiles(handIds, ghostId, meldCount){
+  var res=[]; var cand=allTileIds();
+  for(var i=0;i<cand.length;i++){ if(shantenStd(handIds.concat([cand[i]]),ghostId,meldCount)===-1) res.push(cand[i]); }
+  if(shantenStd(handIds.concat([ghostId]),ghostId,meldCount)===-1 && res.indexOf(ghostId)<0) res.push(ghostId);
+  return res;
+}
+function ukeireCount(handIds, ghostId, meldCount){
+  var base=shantenStd(handIds,ghostId,meldCount); if(base<0) return 0;
+  var cnt=0; var cand=allTileIds();
+  for(var i=0;i<cand.length;i++){ if(shantenStd(handIds.concat([cand[i]]),ghostId,meldCount)<base) cnt++; }
+  return cnt;
+}
+
+/* ===================== 游戏状态 ===================== */
+var G=null;
+var SEAT_DOM=['seat-me','seat-ai1','seat-ai3','seat-ai2']; // index对应玩家0..3, 视觉位置
+function shuffleArr(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var x=a[i];a[i]=a[j];a[j]=x;}}
+function sortHand(h){h.sort(function(a,b){return a-b;});}
+
+function newGame(){
+  var wall=[]; allTileIds().forEach(function(id){for(var k=0;k<4;k++)wall.push(id);});
+  shuffleArr(wall);
+  var ghost=wall.pop(); // 拿牌前确定鬼牌牌面
+  G={ wall:wall, ghost:ghost,
+    players:[
+      {name:'你',isMe:true,hand:[],melds:[],discards:[],won:false,open:false},
+      {name:'AI 下家',isMe:false,hand:[],melds:[],discards:[],won:false,open:false},
+      {name:'AI 对家',isMe:false,hand:[],melds:[],discards:[],won:false,open:false},
+      {name:'AI 上家',isMe:false,hand:[],melds:[],discards:[],won:false,open:false}
+    ],
+    turn:0, lastDiscard:null, drawn:null, phase:'discard',
+    selected:null, claim:null, over:false, riverAll:[]
+  };
+  for(var i=0;i<13;i++) for(var p=0;p<4;p++) G.players[p].hand.push(G.wall.pop());
+  for(var p=0;p<4;p++) sortHand(G.players[p].hand);
+  G.drawn=G.wall.pop(); // 庄家(你)摸第14张
+  G.turn=0; G.phase='discard';
+  logClear();
+  log('新牌局开始。本局鬼牌为「'+tileName(ghost)+'」。你是庄家，先出牌。');
+}
+
+/* ===================== 工具 ===================== */
+function meldCount(p){ return p.melds.length; }
+function fullHand(p){ // 包含刚摸到的牌(仅当前出牌者)
+  var h=p.hand.slice();
+  if(p===G.players[G.turn] && G.drawn!=null && G.phase==='discard') h.push(G.drawn);
+  return h;
+}
+function countTile(hand,id){var c=0;for(var i=0;i<hand.length;i++)if(hand[i]===id)c++;return c;}
+
+/* ===================== 概率(相对最优) ===================== */
+/* 对玩家14张手牌的每张候选弃牌, 计算弃后向听 + 进张, 折算0~1相对分数.
+   听牌(弃后向听0)且不破听 -> 突出; 弃后能直接胡(向听-1, 即原本已胡)->100%. */
+function computeDiscardProbs(){
+  var me=G.players[0];
+  var hand=fullHand(me);
+  var mc=meldCount(me);
+  var alreadyWin = isWin(hand, G.ghost, mc);
+  var uniq=[]; var seen={};
+  for(var i=0;i<hand.length;i++){ if(!seen[hand[i]]){seen[hand[i]]=1; uniq.push(hand[i]);} }
+  var evals=[];
+  for(var u=0;u<uniq.length;u++){
+    var tile=uniq[u];
+    var h=hand.slice(); h.splice(h.indexOf(tile),1);
+    var sh=shanten13(h, G.ghost, mc);
+    var uk=ukeireCount(h, G.ghost, mc);   // 所有弃法都算进张, 用于同向听内排序
+    var winsIfDiscard = (sh===0)? winningTiles(h,G.ghost,mc):[];
+    evals.push({tile:tile, sh:sh, uk:uk, wins:winsIfDiscard});
+  }
+  // 最优(最小)向听
+  var minSh=99; for(var i=0;i<evals.length;i++) minSh=Math.min(minSh, evals[i].sh);
+  // 每个向听档的分数区间(向听越小, 区间越高):
+  //  -1(已胡)=1.00 ; 0(听牌)=0.85~0.98 ; 1=0.65~0.80 ; 2=0.45~0.60 ; 3=0.28~0.42 ; 4+=0.10~0.24
+  function band(sh){
+    if(sh<0) return [1.0,1.0];
+    if(sh===0) return [0.85,0.98];
+    if(sh===1) return [0.65,0.80];
+    if(sh===2) return [0.45,0.60];
+    if(sh===3) return [0.28,0.42];
+    return [0.10,0.24];
+  }
+  // 先按向听分组, 同组内按进张数线性映射到该档区间
+  // 计算每个出现的向听值对应的(minUk,maxUk)
+  var groupUk={};
+  for(var i=0;i<evals.length;i++){ var e=evals[i];
+    if(!groupUk[e.sh]) groupUk[e.sh]={min:e.uk,max:e.uk};
+    groupUk[e.sh].min=Math.min(groupUk[e.sh].min, e.uk);
+    groupUk[e.sh].max=Math.max(groupUk[e.sh].max, e.uk);
+  }
+  for(var i=0;i<evals.length;i++){ var e=evals[i];
+    var b=band(e.sh); var lo=b[0], hi=b[1];
+    var g=groupUk[e.sh]; var t;
+    if(g.max===g.min){ t=1; } else { t=(e.uk-g.min)/(g.max-g.min); } // 该向听组内, 进张最多=1
+    var score = lo + (hi-lo)*t;
+    // 非最优向听整体再压低一点, 拉开与最优向听的差距
+    if(e.sh>minSh){ score -= 0.04*(e.sh-minSh); }
+    e.score = Math.max(0, Math.min(1, score));
+  }
+  // 自摸胡: 若当前14张已胡, 能保持胡的弃法标满分(由胡按钮实际触发)
+  if(alreadyWin){ for(var i=0;i<evals.length;i++){ if(evals[i].sh===-1) evals[i].score=1.0; } }
+  return {evals:evals, minSh:minSh, alreadyWin:alreadyWin};
+}
+
+/* ===================== 渲染 ===================== */
+function el(id){return document.getElementById(id);}
+function logClear(){ el('log').innerHTML=''; }
+function log(msg){ var d=document.createElement('div'); d.textContent=msg; el('log').appendChild(d); el('log').scrollTop=el('log').scrollHeight; }
+function banner(msg){ el('banner').textContent=msg||''; }
+function showOverlay(big, sub){ var o=el('overlay'); el('overlayBig').textContent=big; el('overlaySub').textContent=sub||''; o.classList.add('show'); }
+function hideOverlay(){ el('overlay').classList.remove('show'); }
+
+function tileEl(id, opts){
+  opts=opts||{};
+  var d=document.createElement('div');
+  d.className='tile '+tSuit(id);
+  if(opts.back){ d.className='tile back'; d.innerHTML='<span class="glyph">\uD83C\uDC2B\uFE0E</span>'; return d; }
+  var gspan=document.createElement('span'); gspan.className='glyph'; gspan.textContent=tileGlyph(id);
+  gspan.title=tileName(id);
+  d.appendChild(gspan);
+  if(id===G.ghost) d.classList.add('isghost');
+  if(opts.clickable){ d.classList.add('clickable'); }
+  if(opts.drawn) d.classList.add('drawn');
+  if(opts.selected) d.classList.add('selected');
+  if(opts.prob!=null){
+    var pb=document.createElement('div'); pb.className='prob'+(opts.best?' best':'');
+    pb.textContent=opts.prob.toFixed(2); d.appendChild(pb);
+  }
+  return d;
+}
+function meldText(p){
+  if(!p.melds.length) return '';
+  return p.melds.map(function(m){
+    var t=tileName(m.tile);
+    return (m.type==='gang'?'杠':'碰')+t;
+  }).join('  ');
+}
+
+function render(){
+  // 计算可碰/杠高亮目标牌
+  G._claimTile=null;
+  if(G.phase==='react' && G.lastDiscard && G.lastDiscard.from!==0){
+    var _me=G.players[0]; var _t=G.lastDiscard.tile;
+    if(_t!==G.ghost && countTile(_me.hand,_t)>=2){ G._claimTile=_t; }
+  }
+  el('ghostLabel').textContent=tileName(G.ghost);
+  el('wallCount').textContent=G.wall.length;
+  // seats
+  for(var pi=0; pi<4; pi++){
+    var p=G.players[pi];
+    var seat=el(SEAT_DOM[pi]);
+    seat.querySelector('.melds').textContent=meldText(p) + (p.won?'  ✅已胡':'');
+    var handDiv=seat.querySelector('.hand'); handDiv.innerHTML='';
+    if(p.isMe){
+      // 我的手牌可点选; 显示概率
+      var probInfo=(G.phase==='discard' && G.turn===0)?computeDiscardProbs():null;
+      var hand=p.hand.slice(); // 不含drawn, drawn单独显示在右
+      // 鬼牌固定放最左边, 其余按原顺序; 鬼牌与普通牌之间留空
+      var ghostTiles=[], normalTiles=[];
+      hand.forEach(function(id){ if(id===G.ghost) ghostTiles.push(id); else normalTiles.push(id); });
+      var ordered=ghostTiles.concat(normalTiles);
+      // 概率映射
+      var probMap={};
+      var bestScore=-1, bestTile=null;
+      if(probInfo){ probInfo.evals.forEach(function(e){ probMap[e.tile]=e.score; if(e.score>bestScore){bestScore=e.score;bestTile=e.tile;} }); }
+      var firstNormalAdded=false;
+      ordered.forEach(function(id){
+        var canClick=(G.phase==='discard'&&G.turn===0);
+        var d=tileEl(id,{clickable:canClick, selected:(G.selected===id),
+          prob: probInfo?probMap[id]:null, best: probInfo&&id===bestTile});
+        // 在第一张普通牌前留空(仅当确实有鬼牌时)
+        if(id!==G.ghost && !firstNormalAdded && ghostTiles.length>0){ d.classList.add('ghost-gap'); firstNormalAdded=true; }
+        if(G._claimTile!=null && id===G._claimTile){ d.classList.add('claim-hl'); }
+        if(canClick) d.onclick=function(t){return function(){ selectTile(t); };}(id);
+        handDiv.appendChild(d);
+      });
+      if(G.drawn!=null && G.turn===0 && G.phase==='discard'){
+        var canClick=true;
+        var d=tileEl(G.drawn,{clickable:true, drawn:true, selected:(G.selected===G.drawn),
+          prob: probInfo?probMap[G.drawn]:null, best: probInfo&&G.drawn===bestTile});
+        d.onclick=function(){ selectTile(G.drawn); };
+        handDiv.appendChild(d);
+      }
+    } else {
+      // AI: 背面; 胡牌时摊开
+      var show = p.open || G.over;
+      var hand=p.hand.slice();
+      hand.forEach(function(id){ handDiv.appendChild(tileEl(id,{back:!show})); });
+    }
+  }
+  // 牌河
+  var dp=el('discardpile'); dp.innerHTML='';
+  var recent=G.riverAll.slice(-30);
+  recent.forEach(function(x, idx){ var dt=tileEl(x.tile,{});
+    if(G._claimTile!=null && idx===recent.length-1 && x.tile===G._claimTile){ dt.classList.add('claim-hl'); }
+    dp.appendChild(dt); });
+  // 控件
+  updateControls();
+  // winhint
+  updateWinHint();
+}
+
+function visibleCount(id){
+  // 玩家可见: 自己手牌(含drawn) + 自己副露 + 全部牌河弃牌. (AI暗手不计)
+  var n=0; var me=G.players[0];
+  var myhand=fullHand(me);
+  for(var i=0;i<myhand.length;i++) if(myhand[i]===id) n++;
+  // 自己副露(碰/杠)里的该牌
+  me.melds.forEach(function(m){ if(m.tile===id) n+= (m.type==='gang'?4:3); });
+  // 牌河
+  for(var i=0;i<G.riverAll.length;i++) if(G.riverAll[i].tile===id) n++;
+  // 已摊牌(胡牌)的AI手牌也可见
+  for(var pi=1; pi<4; pi++){ var p=G.players[pi]; if(p.open||G.over){ for(var k=0;k<p.hand.length;k++) if(p.hand[k]===id) n++; p.melds.forEach(function(m){ if(m.tile===id) n+=(m.type==='gang'?4:3); }); } }
+  return n;
+}
+function remainCount(id){ var r=4-visibleCount(id); return r<0?0:r; }
+function updateWinHint(){
+  var box=el('winhint'); box.innerHTML='';
+  if(!(G.phase==='discard' && G.turn===0)) return;
+  var me=G.players[0]; var mc=meldCount(me);
+  var hand=fullHand(me);
+  // 找出所有“弃后听牌”的弃法
+  var info=computeDiscardProbs();
+  var tenpaiDiscards=[];
+  info.evals.forEach(function(e){
+    if(e.sh===0){
+      var h=hand.slice(); var i=h.indexOf(e.tile); if(i>=0) h.splice(i,1);
+      var wins=winningTiles(h,G.ghost,mc);
+      if(wins.length) tenpaiDiscards.push({tile:e.tile, wins:wins, score:e.score});
+    }
+  });
+  if(!tenpaiDiscards.length) return;
+  // 排序: 概率高的在前
+  tenpaiDiscards.sort(function(a,b){ return b.score-a.score; });
+  // 标题行
+  var head=document.createElement('div'); head.className='winrow';
+  var hl=document.createElement('span'); hl.className='wlabel';
+  hl.textContent = tenpaiDiscards.length>1 ? ('听牌打法（共'+tenpaiDiscards.length+'种）：') : '听牌：';
+  head.appendChild(hl); box.appendChild(head);
+  // 每种弃法一行
+  tenpaiDiscards.forEach(function(td){
+    var row=document.createElement('div'); row.className='winrow';
+    if(G.selected===td.tile) row.classList.add('cur');
+    var lbl=document.createElement('span'); lbl.className='wlabel';
+    lbl.textContent='打 '+tileName(td.tile)+' 胡：';
+    row.appendChild(lbl);
+    td.wins.forEach(function(id){ var t=tileEl(id,{}); var rem=remainCount(id); var b=document.createElement('div'); b.className='rem-badge'+(rem===0?' zero':''); b.textContent=rem; t.appendChild(b); row.appendChild(t); });
+    box.appendChild(row);
+  });
+}
+
+/* ===================== 控件状态 ===================== */
+function updateControls(){
+  var me=G.players[0];
+  var canPeng=false, canGang=false, canHu=false, canCancel=false;
+  if(G.phase==='discard' && G.turn===0){
+    // 自摸胡?
+    if(isWin(fullHand(me), G.ghost, meldCount(me))) canHu=true;
+    // 暗杠/补杠?
+    if(selfGangOptions().length>0) canGang=true;
+  }
+  if(G.phase==='react' && G.lastDiscard && G.lastDiscard.from!==0){
+    var t=G.lastDiscard.tile;
+    if(t!==G.ghost){ // 鬼牌不可碰杠(理论上鬼牌不会被打出)
+      if(countTile(me.hand,t)>=2) canPeng=true;
+      if(countTile(me.hand,t)>=3) canGang=true;
+    }
+    // 点炮不可胡 -> 别人打牌不能胡; 故 canHu 保持 false
+    canCancel=true;
+  }
+  el('pengBtn').disabled=!canPeng;
+  el('gangBtn').disabled=!canGang;
+  el('huBtn').disabled=!canHu;
+  el('cancelBtn').disabled=!canCancel;
+}
+function selfGangOptions(){
+  // 暗杠: 手中(含drawn)某牌4张; 补杠: 已碰的牌再摸到第4张
+  var me=G.players[0]; var hand=fullHand(me); var opts=[];
+  var cnt={};
+  hand.forEach(function(id){ if(id!==G.ghost) cnt[id]=(cnt[id]||0)+1; });
+  for(var k in cnt){ if(cnt[k]>=4) opts.push({type:'angang', tile:+k}); }
+  me.melds.forEach(function(m){ if(m.type==='peng' && countTile(hand,m.tile)>=1) opts.push({type:'bugang', tile:m.tile}); });
+  return opts;
+}
+
+/* ===================== 玩家操作 ===================== */
+function selectTile(id){ if(G.phase!=='discard'||G.turn!==0) return; G.selected=(G.selected===id)?null:id; render(); }
+
+function playerDiscard(id){
+  var me=G.players[0];
+  // 从 fullHand 中移除该牌: 若是drawn
+  if(id===G.drawn){ G.drawn=null; }
+  else {
+    var idx=me.hand.indexOf(id); if(idx<0){ // 可能等于drawn值但drawn已并入
+      if(G.drawn===id){G.drawn=null;} else return;
+    } else {
+      me.hand.splice(idx,1);
+      // 把drawn并入手牌
+      if(G.drawn!=null){ me.hand.push(G.drawn); G.drawn=null; }
+    }
+  }
+  sortHand(me.hand);
+  G.selected=null;
+  doDiscard(0,id);
+}
+
+function doDiscard(pi, id){
+  var p=G.players[pi];
+  p.discards.push(id);
+  G.riverAll.push({tile:id, from:pi});
+  G.lastDiscard={tile:id, from:pi};
+  log(p.name+' 打出 '+tileName(id));
+  // 进入“他人反应”阶段: 检查我(玩家)是否可碰/杠(点炮不能胡)
+  if(pi!==0){
+    var me=G.players[0];
+    var canReact=(id!==G.ghost) && (countTile(me.hand,id)>=2);
+    if(canReact){ G.phase='react'; render(); return; } // 等玩家决定碰/杠/取消
+  }
+  // AI 是否要碰/杠该弃牌(任何AI都可碰杠他人弃牌, 含玩家的)
+  if(aiTryClaim(id, pi)) { render(); return; }
+  // 无人碰杠 -> 下一家摸牌
+  nextDraw((pi+1)%4);
+}
+
+function passReact(){ // 玩家放弃碰杠
+  var d=G.lastDiscard;
+  if(aiTryClaim(d.tile, d.from)){ render(); return; }
+  nextDraw((d.from+1)%4);
+}
+
+/* 碰 */
+function playerPeng(){
+  var d=G.lastDiscard; var me=G.players[0]; var t=d.tile;
+  // 移除两张
+  for(var k=0;k<2;k++){ var i=me.hand.indexOf(t); me.hand.splice(i,1); }
+  me.melds.push({type:'peng', tile:t, from:d.from});
+  // 弃牌从牌河移走(被碰走)
+  log('你 碰 '+tileName(t));
+  G.turn=0; G.phase='discard'; G.drawn=null; G.lastDiscard=null; G.selected=null;
+  // 碰后需打出一张(不摸)
+  render();
+}
+/* 杠(明杠他人弃牌 / 暗杠 / 补杠) */
+function playerGang(){
+  var me=G.players[0];
+  if(G.phase==='react' && G.lastDiscard){ // 明杠
+    var t=G.lastDiscard.tile;
+    for(var k=0;k<3;k++){ var i=me.hand.indexOf(t); me.hand.splice(i,1); }
+    me.melds.push({type:'gang', tile:t, sub:'ming'});
+    log('你 杠 '+tileName(t)+'（明杠）');
+    G.lastDiscard=null;
+    gangDrawAndContinue(0);
+    return;
+  }
+  // 自家杠(暗/补): 若多个, 取第一个
+  var opts=selfGangOptions();
+  if(!opts.length) return;
+  var o=opts[0];
+  var hand=fullHand(me);
+  if(o.type==='angang'){
+    // 把drawn并入
+    if(G.drawn!=null){ me.hand.push(G.drawn); G.drawn=null; sortHand(me.hand); }
+    for(var k=0;k<4;k++){ var i=me.hand.indexOf(o.tile); me.hand.splice(i,1); }
+    me.melds.push({type:'gang', tile:o.tile, sub:'an'});
+    log('你 暗杠 '+tileName(o.tile));
+  } else { // bugang
+    if(G.drawn!=null){ me.hand.push(G.drawn); G.drawn=null; sortHand(me.hand); }
+    var i=me.hand.indexOf(o.tile); me.hand.splice(i,1);
+    for(var mm=0;mm<me.melds.length;mm++){ if(me.melds[mm].type==='peng'&&me.melds[mm].tile===o.tile){ me.melds[mm].type='gang'; me.melds[mm].sub='bu'; break; } }
+    log('你 补杠 '+tileName(o.tile));
+  }
+  gangDrawAndContinue(0);
+}
+/* 胡(玩家自摸) */
+function playerHu(){
+  var me=G.players[0];
+  if(isWin(fullHand(me), G.ghost, meldCount(me))){
+    G.over=true; G.phase='over';
+    log('🎉 你自摸胡牌！牌局结束。');
+    banner('🎉 你自摸胡牌！');
+    render();
+  }
+}
+function playerCancel(){
+  if(G.phase==='react'){ G.phase='passing'; passReact(); }
+}
+
+/* 杠后补摸一张(杠上开花算自摸) */
+function gangDrawAndContinue(pi){
+  var p=G.players[pi];
+  if(G.wall.length===0){ endDraw(); return; }
+  var t=G.wall.pop();
+  log(p.name+' 杠后补摸一张');
+  if(pi===0){
+    G.drawn=t; G.turn=0; G.phase='discard';
+    // 杠上开花自摸?
+    if(isWin(fullHand(p), G.ghost, meldCount(p))){ log('你 杠上开花，可胡！'); }
+    render();
+  } else {
+    p.hand.push(t); sortHand(p.hand);
+    aiTurnAfterDraw(pi, t, true);
+  }
+}
+
+/* ===================== AI ===================== */
+/* AI按最优概率出牌: 摸牌后, 在14张里选弃后向听最小(同则进张最多)的牌打出.
+   先判自摸胡; 再判是否暗杠/补杠有利(简单: 有4张则暗杠并补摸).
+   碰杠他人弃牌: 评估碰后是否向听改善(不改善则不碰), 杠类似. */
+function aiBestDiscard(pi){
+  var p=G.players[pi]; var mc=meldCount(p);
+  var hand=p.hand.slice(); // 已含刚摸的牌
+  var uniq=[]; var seen={};
+  for(var i=0;i<hand.length;i++) if(!seen[hand[i]]){seen[hand[i]]=1;uniq.push(hand[i]);}
+  var best=null;
+  for(var u=0;u<uniq.length;u++){
+    var tile=uniq[u];
+    if(tile===G.ghost) continue; // 鬼牌绝不打出
+    var h=hand.slice(); h.splice(h.indexOf(tile),1);
+    var sh=shanten13(h,G.ghost,mc);
+    var uk=(sh<=1)?ukeireCount(h,G.ghost,mc):0;
+    if(!best || sh<best.sh || (sh===best.sh && uk>best.uk)){ best={tile:tile,sh:sh,uk:uk}; }
+  }
+  if(!best){ // 全是鬼牌的极端情况, 打第一张非鬼或随意
+    best={tile:uniq[0],sh:9,uk:0};
+  }
+  return best.tile;
+}
+function aiTurnAfterDraw(pi, drawnTile, isGang){
+  var p=G.players[pi];
+  // 自摸胡?
+  if(isWin(p.hand, G.ghost, meldCount(p))){
+    var firstWin = !p.won;
+    p.won=true; p.open=true;
+    log('🀄 '+p.name+' 自摸胡牌！（摊牌，牌局继续直到你胡或流局）');
+    render();
+    if(firstWin){ showOverlay('你被AI打爆了！', p.name+' 自摸胡牌（牌局继续，直到你胡或流局）'); }
+    // 牌局继续: 该AI继续打出一张以推进; 纯展示
+  }
+  // 暗杠机会(有4张)
+  var cnt={}; p.hand.forEach(function(id){ if(id!==G.ghost) cnt[id]=(cnt[id]||0)+1; });
+  var gangTile=null; for(var k in cnt){ if(cnt[k]>=4){ gangTile=+k; break; } }
+  if(gangTile!=null){
+    // 评估: 暗杠通常无害, 直接杠
+    for(var z=0;z<4;z++){ var i=p.hand.indexOf(gangTile); p.hand.splice(i,1); }
+    p.melds.push({type:'gang',tile:gangTile,sub:'an'});
+    log(p.name+' 暗杠 '+tileName(gangTile));
+    gangDrawAndContinue(pi); return;
+  }
+  // 正常打牌
+  var t=aiBestDiscard(pi);
+  // 从手牌移除
+  var idx=p.hand.indexOf(t); p.hand.splice(idx,1); sortHand(p.hand);
+  doDiscard(pi,t);
+}
+/* AI尝试碰/杠他人(含玩家)弃牌. 返回是否执行了claim. 多AI时取最先有利者(简单按座位顺序). */
+function aiTryClaim(tile, fromPi){
+  if(tile===G.ghost) return false; // 鬼牌不可碰杠
+  for(var off=1; off<4; off++){
+    var pi=(fromPi+off)%4;
+    if(pi===0) continue; // 玩家的反应已单独处理(玩家选择放弃后才轮到AI claim)
+    var p=G.players[pi];
+    var c=countTile(p.hand,tile);
+    if(c>=3){
+      // 杠: 评估杠后向听是否不变差
+      var before=shanten13(p.hand, G.ghost, meldCount(p));
+      var h=p.hand.slice(); for(var k=0;k<3;k++){var i=h.indexOf(tile);h.splice(i,1);}
+      var after=shanten13(h, G.ghost, meldCount(p)+1);
+      if(after<=before){
+        for(var k=0;k<3;k++){var i=p.hand.indexOf(tile);p.hand.splice(i,1);}
+        p.melds.push({type:'gang',tile:tile,sub:'ming'});
+        log(p.name+' 杠 '+tileName(tile)+'（明杠）');
+        gangDrawAndContinue(pi); return true;
+      }
+    }
+    if(c>=2){
+      // 碰: 评估碰后向听是否改善(不变差才碰), 模拟碰+随后最优打
+      var before=shanten13(p.hand, G.ghost, meldCount(p));
+      var h=p.hand.slice(); for(var k=0;k<2;k++){var i=h.indexOf(tile);h.splice(i,1);}
+      // 碰后需打一张: 评估碰后最优弃牌的向听
+      var bestAfter=99;
+      var uniq=[],seen={}; for(var x=0;x<h.length;x++) if(!seen[h[x]]){seen[h[x]]=1;uniq.push(h[x]);}
+      for(var u=0;u<uniq.length;u++){ if(uniq[u]===G.ghost) continue; var hh=h.slice(); hh.splice(hh.indexOf(uniq[u]),1); var s=shanten13(hh,G.ghost,meldCount(p)+1); if(s<bestAfter)bestAfter=s; }
+      if(bestAfter<before){ // 碰能减少向听才碰(体现“碰11破坏123则不碰”)
+        for(var k=0;k<2;k++){var i=p.hand.indexOf(tile);p.hand.splice(i,1);}
+        p.melds.push({type:'peng',tile:tile,from:fromPi});
+        log(p.name+' 碰 '+tileName(tile));
+        // 碰后立即打出一张
+        var dt=aiBestDiscard(pi);
+        var idx=p.hand.indexOf(dt); p.hand.splice(idx,1); sortHand(p.hand);
+        doDiscard(pi,dt); return true;
+      }
+    }
+  }
+  return false;
+}
+/* 摸牌进入某家回合 */
+function nextDraw(pi){
+  if(G.over) return;
+  if(G.wall.length===0){ endDraw(); return; }
+  if(pi===0){
+    G.drawn=G.wall.pop(); G.turn=0; G.phase='discard'; G.selected=null;
+    log('轮到你，摸到 '+tileName(G.drawn));
+    render();
+  } else {
+    var t=G.wall.pop(); var p=G.players[pi]; p.hand.push(t); sortHand(p.hand);
+    G.turn=pi; G.phase='aiturn';
+    render();
+    setTimeout(function(){ aiTurnAfterDraw(pi,t,false); }, 420);
+  }
+}
+function endDraw(){ G.over=true; G.phase='over'; log('牌墙摸完，流局。'); banner('— 流局 —'); render(); }
+
+/* ===================== 事件绑定 ===================== */
+function startGame(){
+  hideOverlay();
+  newGame();
+  el('cover').classList.remove('active');
+  el('game').classList.add('active');
+  banner('');
+  render();
+}
+function backToCover(){
+  hideOverlay();
+  el('game').classList.remove('active');
+  el('cover').classList.add('active');
+  banner('');
+}
+window.addEventListener('DOMContentLoaded', function(){
+  el('startBtn').onclick=startGame;
+  el('overlayOk').onclick=hideOverlay;
+  document.getElementById('changelogBtn').onclick=showChangelog;
+  document.getElementById('clCloseBtn').onclick=hideChangelog;
+  document.getElementById('clpanel').addEventListener('click', function(e){ if(e.target===this) hideChangelog(); });
+  el('backBtn').onclick=backToCover;
+  el('cancelBtn').onclick=function(){ playerCancel(); };
+  el('pengBtn').onclick=function(){ if(!el('pengBtn').disabled) playerPeng(); };
+  el('huBtn').onclick=function(){ if(!el('huBtn').disabled) playerHu(); };
+  el('gangBtn').onclick=function(){ if(!el('gangBtn').disabled) playerGang(); };
+  // 点击已选中的牌再点“出牌”——这里用双击牌或点选后再点该牌触发出牌。
+  // 简化: 选中后再次点击同一张即出牌(在selectTile里切换). 为明确, 增加：双击出牌.
+  document.getElementById('seat-me').addEventListener('dblclick', function(e){
+    if(G && G.phase==='discard' && G.turn===0 && G.selected!=null){ playerDiscard(G.selected); }
+  });
+});
+/* 单击出牌方式: 选中一张后, 再点一次它即出牌 */
+var _origSelect=selectTile;
+selectTile=function(id){
+  if(G.phase!=='discard'||G.turn!==0) return;
+  if(G.selected===id){ playerDiscard(id); return; } // 第二次点击=出牌
+  G.selected=id; render();
+};
+</script>
+</body>
+</html>

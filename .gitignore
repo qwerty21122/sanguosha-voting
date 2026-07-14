@@ -1,0 +1,8 @@
+node_modules/
+*.log
+npm-debug.log*
+votes.json
+generals.json
+.env
+.DS_Store
+tmp/

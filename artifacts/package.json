@@ -1,0 +1,13 @@
+{
+  "name": "sanguosha-voting",
+  "version": "1.0.0",
+  "description": "三国杀武将强度投票系统",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "sqlite3": "^5.1.6"
+  }
+}
