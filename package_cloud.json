@@ -1,0 +1,9 @@
+{
+  "name": "sanguosha-voting",
+  "version": "1.0.0",
+  "description": "三国杀武将强度投票系统 - 腾讯云函数版",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "^2.6.1"
+  }
+}
