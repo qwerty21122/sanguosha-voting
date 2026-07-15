@@ -49,7 +49,10 @@
   .team-label{
     grid-column:1/-1; text-align:center; font-size:18px; font-weight:700;
     color:var(--accent); padding:8px; background:rgba(91,124,190,.08);
-    border-radius:10px;
+    border-radius:10px; transition:.15s;
+  }
+  .team-label.clickable:hover{
+    background:rgba(91,124,190,.18); transform:scale(1.02); box-shadow:0 4px 12px rgba(91,124,190,.2);
   }
   .pick{
     background:var(--card); border:2px solid var(--line); border-radius:16px;
@@ -83,9 +86,9 @@
   }
   .skipbar button:hover{color:var(--accent); border-color:var(--accent2);}
   
-  .f-wei{background:#4a6fa5;} .f-shu{background:#3f9d6b;}
-  .f-wu{background:#c8514e;} .f-qun{background:#8a7a4e;}
-  .f-dual{background:#7a5ea8;} .f-amb{background:#555c66;} .f-yin{background:#4c8aa0;}
+  .f-wei{background:#4a6fa5;} .f-shu{background:#c0504d;}
+  .f-wu{background:#3f9d6b;} .f-qun{background:#8a7a4e;}
+  .f-dual{background:#7a5ea8;} .f-amb{background:#7a5ea8;} .f-yin{background:#4c8aa0;}
   
   .stats-panel{display:none;}
   .stats-panel.active{display:block;}
@@ -187,8 +190,7 @@
       <div class="counter">已投票 <b id="voteCount">0</b> 次 · 共 <b id="genTotal">0</b> 名武将</div>
     </div>
     <div class="arena" id="arena">
-      <div class="team-label">🔵 队伍A</div>
-      <div class="team-label" onclick="selectTeam('A')" style="cursor:pointer"> 队伍A</div>
+      <div class="team-label clickable" onclick="selectTeam('A')" title="点击选择队伍A获胜">🔵 队伍A (点击选择)</div>
       <div class="pick" id="pickA1">
         <span class="faction" id="facA1"></span>
         <span class="name" id="nameA1"></span>
@@ -200,7 +202,7 @@
         <div class="desc" id="descA2"></div>
       </div>
       <div class="vs-divider">⚔️ VS ⚔️</div>
-      <div class="team-label" onclick="selectTeam('B')" style="cursor:pointer"> 队伍B</div>
+      <div class="team-label clickable" onclick="selectTeam('B')" title="点击选择队伍B获胜">🔴 队伍B (点击选择)</div>
       <div class="pick" id="pickB1">
         <span class="faction" id="facB1"></span>
         <span class="name" id="nameB1"></span>
