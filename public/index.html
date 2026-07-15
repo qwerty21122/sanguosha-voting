@@ -188,24 +188,25 @@
     </div>
     <div class="arena" id="arena">
       <div class="team-label">🔵 队伍A</div>
-      <div class="pick" id="pickA1" onclick="selectTeam('A')">
+      <div class="team-label" onclick="selectTeam('A')" style="cursor:pointer"> 队伍A</div>
+      <div class="pick" id="pickA1">
         <span class="faction" id="facA1"></span>
         <span class="name" id="nameA1"></span>
         <div class="desc" id="descA1"></div>
       </div>
-      <div class="pick" id="pickA2" onclick="selectTeam('A')">
+      <div class="pick" id="pickA2">
         <span class="faction" id="facA2"></span>
         <span class="name" id="nameA2"></span>
         <div class="desc" id="descA2"></div>
       </div>
       <div class="vs-divider">⚔️ VS ⚔️</div>
-      <div class="team-label"> 队伍B</div>
-      <div class="pick" id="pickB1" onclick="selectTeam('B')">
+      <div class="team-label" onclick="selectTeam('B')" style="cursor:pointer"> 队伍B</div>
+      <div class="pick" id="pickB1">
         <span class="faction" id="facB1"></span>
         <span class="name" id="nameB1"></span>
         <div class="desc" id="descB1"></div>
       </div>
-      <div class="pick" id="pickB2" onclick="selectTeam('B')">
+      <div class="pick" id="pickB2">
         <span class="faction" id="facB2"></span>
         <span class="name" id="nameB2"></span>
         <div class="desc" id="descB2"></div>
@@ -282,17 +283,28 @@ async function init() {
   }
 }
 
-// 势力组合校验：同国/双势力/野心家混编，禁止双野心家
+// 势力组合校验：严格同势力组队，野心家可与任意非野心家组队
+// "双势力"武将(如魏/吴)的faction字段就是"魏/吴"，它本身是跨势力的
+// 所以魏/吴可以和魏组队(都含魏)，也可以和吴组队(都含吴)
 function isValidPair(g1, g2) {
   const f1 = g1[1], f2 = g2[1];
+  
   // 禁止双野心家
   if (f1 === '野心家' && f2 === '野心家') return false;
-  // 同国 ✓
-  if (f1 === f2 && f1 !== '野心家') return true;
-  // 双势力组合(如魏/吴) ✓
-  if (f1 !== '野心家' && f2 !== '野心家' && f1 !== f2) return true;
+  
   // 野心家+任意非野心家 ✓
   if ((f1 === '野心家' && f2 !== '野心家') || (f2 === '野心家' && f1 !== '野心家')) return true;
+  
+  // 完全相同势力 ✓ (包括都是"魏/吴")
+  if (f1 === f2) return true;
+  
+  // 双势力武将兼容判断：
+  // 如果f1包含"/"(如"魏/吴")，检查f2是否是f1的组成部分
+  if (f1.includes('/') && f1.split('/').includes(f2)) return true;
+  // 如果f2包含"/"(如"魏/吴")，检查f1是否是f2的组成部分
+  if (f2.includes('/') && f2.split('/').includes(f1)) return true;
+  
+  // 其他情况都不合法
   return false;
 }
 
